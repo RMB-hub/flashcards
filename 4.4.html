@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>日语单词闪卡（旗舰版）</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, sans-serif;
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: #f2f2f2;
+    color: #222;
+    transition: background .3s, color .3s;
+  }
+  body.dark {
+    background: #1e1e1e;
+    color: #eee;
+  }
+  h1 {
+    margin: 0 0 10px;
+    font-size: 20px;
+    text-align: center;
+  }
+  .top-bar {
+    position: absolute;
+    top: 10px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+  }
+  .top-bar button {
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 999px;
+    border: none;
+    background: #4a90e2;
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .card {
+    width: 360px;
+    height: 240px;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 28px;
+    text-align: center;
+    padding: 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: background .3s, color .3s;
+    transform-style: preserve-3d;
+  }
+  body.dark .card {
+    background: #333;
+    color: #eee;
+  }
+  .card.flip {
+    animation: flip3d .4s ease;
+  }
+  @keyframes flip3d {
+    0%   { transform: rotateY(0deg); }
+    50%  { transform: rotateY(180deg); }
+    100% { transform: rotateY(360deg); }
+  }
+
+  .buttons {
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+  button {
+    padding: 8px 16px;
+    font-size: 14px;
+    border-radius: 8px;
+    border: none;
+    background: #4a90e2;
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .progress-wrapper {
+    margin-top: 16px;
+    display: flex;
+    justify-content: center;
+  }
+  .progress-circle {
+    width: 120px;
+    height: 120px;
+    position: relative;
+  }
+  .progress-circle svg {
+    transform: rotate(-90deg);
+  }
+  .progress-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+  }
+  .progress-text span {
+    display: block;
+  }
+  .outer-circle, .inner-circle {
+    transition: stroke-dashoffset .4s ease;
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <button id="reviewToggleBtn" onclick="toggleReviewMode()">只复习不会的</button>
+  <button onclick="toggleDark()">夜间模式</button>
+</div>
+
+<h1>日语单词闪卡（旗舰版）</h1>
+
+<div class="card" id="card">点击翻面</div>
+
+<div class="buttons">
+  <button onclick="prevCard()">上一张</button>
+  <button onclick="nextCard()">下一张</button>
+  <button onclick="randomCard()">随机</button>
+  <button onclick="toggleAuto()">自动播放</button>
+  <button onclick="speak()">发音</button>
+  <button onclick="markKnown()">👍 已掌握</button>
+  <button onclick="markUnknown()">👎 不会</button>
+</div>
+
+<div class="progress-wrapper">
+  <div class="progress-circle">
+    <svg width="120" height="120">
+      <circle cx="60" cy="60" r="52" stroke="#ddd" stroke-width="6" fill="none" />
+      <circle id="outerCircle" class="outer-circle" cx="60" cy="60" r="52"
+              stroke="#4a90e2" stroke-width="6" fill="none"
+              stroke-linecap="round" />
+      <circle cx="60" cy="60" r="38" stroke="#ddd" stroke-width="6" fill="none" />
+      <circle id="innerCircle" class="inner-circle" cx="60" cy="60" r="38"
+              stroke="#50c878" stroke-width="6" fill="none"
+              stroke-linecap="round" />
+    </svg>
+    <div class="progress-text">
+      <span id="outerText">0 / 0</span>
+      <span id="innerText">已掌握 0</span>
+    </div>
+  </div>
+</div>
+
+<audio id="flipSound">
+  <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_7b6e3c7e3e.mp3?filename=card-flip-1-108466.mp3">
+</audio>
+
+<script>
+/* ------------------ 单词数据（含汉字 + 假名 + 中文） ------------------ */
+const cards = [
+  {kanji:"経済", kana:"けいざい", cn:"经济"},
+  {kanji:"分野", kana:"ぶんや", cn:"领域、方面"},
+  {kanji:"影響", kana:"えいきょう", cn:"影响"},
+  {kanji:"準備", kana:"じゅんび", cn:"准备"},
+  {kanji:"お辞儀", kana:"おじぎ", cn:"鞠躬、行礼"},
+  {kanji:"大勢", kana:"おおぜい", cn:"许多人"},
+  {kanji:"信号", kana:"しんごう", cn:"信号、红绿灯"},
+  {kanji:"握手", kana:"あくしゅ", cn:"握手"},
+  {kanji:"就職", kana:"しゅうしょく", cn:"就职"},
+  {kanji:"出席", kana:"しゅっせき", cn:"出席"},
+  {kanji:"留学", kana:"りゅうがく", cn:"留学"},
+  {kanji:"患者", kana:"かんじゃ", cn:"患者"},
+  {kanji:"条件", kana:"じょうけん", cn:"条件"},
+  {kanji:"階段", kana:"かいだん", cn:"楼梯、台阶"},
+  {kanji:"人間", kana:"にんげん", cn:"人、人类"},
+  {kanji:"経理", kana:"けいり", cn:"会计、财务"},
+  {kanji:"列車", kana:"れっしゃ", cn:"列车"},
+  {kanji:"運転手", kana:"うんてんしゅ", cn:"司机"},
+  {kanji:"天気予報", kana:"てんきよほう", cn:"天气预报"},
+  {kanji:"ご主人", kana:"ごしゅじん", cn:"丈夫、主人"},
+  {kanji:"成績", kana:"せいせき", cn:"成绩"},
+  {kanji:"案内", kana:"あんない", cn:"向导、指南"},
+  {kanji:"家内", kana:"かない", cn:"妻"},
+  {kanji:"邪魔", kana:"じゃま", cn:"打扰、妨碍"},
+  {kanji:"遠慮", kana:"えんりょ", cn:"客气、推辞"},
+  {kanji:"品物", kana:"しなもの", cn:"物品、商品"},
+  {kanji:"試合", kana:"しあい", cn:"比赛"},
+  {kanji:"丈夫", kana:"じょうぶ", cn:"结实、健康"},
+  {kanji:"変", kana:"へん", cn:"奇怪、异常"},
+  {kanji:"熱心", kana:"ねっしん", cn:"热心"},
+  {kanji:"真面目", kana:"まじめ", cn:"认真、严肃"},
+  {kanji:"親切", kana:"しんせつ", cn:"亲切"},
+  {kanji:"大事", kana:"だいじ", cn:"重要、宝贝"},
+  {kanji:"特別", kana:"とくべつ", cn:"特别"},
+  {kanji:"残念", kana:"ざんねん", cn:"遗憾、可惜"},
+  {kanji:"簡単", kana:"かんたん", cn:"简单"},
+  {kanji:"危険", kana:"きけん", cn:"危险"},
+  {kanji:"魚", kana:"さかな", cn:"鱼"},
+  {kanji:"野菜", kana:"やさい", cn:"蔬菜"},
+  {kanji:"果物", kana:"くだもの", cn:"水果"},
+  {kanji:"お菓子", kana:"おかし", cn:"点心、零食"},
+  {kanji:"お弁当", kana:"おべんとう", cn:"便当、盒饭"},
+  {kanji:"お土産", kana:"おみやげ", cn:"特产、伴手礼"},
+  {kanji:"お金", kana:"おかね", cn:"钱"},
+  {kanji:"お釣り", kana:"おつり", cn:"找零"},
+  {kanji:"お風呂", kana:"おふろ", cn:"洗澡、浴室"},
+  {kanji:"お返事", kana:"おへんじ", cn:"回信、回复"}
+];
+
+/* ------------------ 状态 ------------------ */
+let pool = cards.map((_, i) => i);
+let poolIndex = 0;
+let showingFront = true;
+let autoPlay = null;
+let reviewMode = false;
+let mastered = new Array(cards.length).fill(false);
+
+const cardEl = document.getElementById("card");
+const flipSound = document.getElementById("flipSound");
+const reviewToggleBtn = document.getElementById("reviewToggleBtn");
+
+const outerCircle = document.getElementById("outerCircle");
+const innerCircle = document.getElementById("innerCircle");
+const outerText = document.getElementById("outerText");
+const innerText = document.getElementById("innerText");
+
+const outerR = 52;
+const innerR = 38;
+const outerLen = 2 * Math.PI * outerR;
+const innerLen = 2 * Math.PI * innerR;
+outerCircle.setAttribute("stroke-dasharray", outerLen);
+innerCircle.setAttribute("stroke-dasharray", innerLen);
+
+/* ------------------ 初始化 ------------------ */
+function currentCardIndex() {
+  return pool[poolIndex];
+}
+
+function renderCard() {
+  const idx = currentCardIndex();
+  if (showingFront) {
+    cardEl.textContent = `${cards[idx].kanji}（${cards[idx].kana}）`;
+  } else {
+    cardEl.textContent = cards[idx].cn;
+  }
+}
+
+function updateProgress() {
+  const total = pool.length;
+  const globalTotal = cards.length;
+  const currentPos = poolIndex + 1;
+  const masteredCount = mastered.filter(v => v).length;
+
+  const outerPercent = total === 0 ? 0 : currentPos / total;
+  const innerPercent = globalTotal === 0 ? 0 : masteredCount / globalTotal;
+
+  outerCircle.style.strokeDashoffset = outerLen * (1 - outerPercent);
+  innerCircle.style.strokeDashoffset = innerLen * (1 - innerPercent);
+
+  outerText.textContent = total === 0 ? "0 / 0" : `${currentPos} / ${total}`;
+  innerText.textContent = `已掌握 ${masteredCount}`;
+}
+
+function refresh() {
+  showingFront = true;
+  renderCard();
+  updateProgress();
+}
+
+/* ------------------ 卡片翻转 ------------------ */
+cardEl.addEventListener("click", () => flip());
+
+function flip() {
+  flipSound.currentTime = 0;
+  flipSound.play();
+  cardEl.classList.remove("flip");
+  void cardEl.offsetWidth;
+  cardEl.classList.add("flip");
+
+  showingFront = !showingFront;
+  setTimeout(() => {
+    renderCard();
+  }, 200);
+}
+
+/* ------------------ 导航（含自动发音） ------------------ */
+function nextCard() {
+  if (pool.length === 0) return;
+  poolIndex = (poolIndex + 1) % pool.length;
+  refresh();
+  speak(true);
+}
+
+function prevCard() {
+  if (pool.length === 0) return;
+  poolIndex = (poolIndex - 1 + pool.length) % pool.length;
+  refresh();
+  speak(true);
+}
+
+function randomCard() {
+  if (pool.length === 0) return;
+  poolIndex = Math.floor(Math.random() * pool.length);
+  refresh();
+  speak(true);
+}
+
+/* ------------------ 自动播放 ------------------ */
+function toggleAuto() {
+  if (autoPlay) {
+    clearInterval(autoPlay);
+    autoPlay = null;
+    alert("自动播放已关闭");
+  } else {
+    autoPlay = setInterval(nextCard, 2000);
+    alert("自动播放已开启（每 2 秒切换）");
+  }
+}
+
+/* ------------------ 发音（只读 kana + 自动等待语音加载） ------------------ */
+let jpVoice = null;
+
+function loadVoices() {
+  const voices = speechSynthesis.getVoices();
+  if (voices.length === 0) {
+    setTimeout(loadVoices, 200);
+    return;
+  }
+  jpVoice = voices.find(v => v.lang === "ja-JP") || voices[0];
+}
+
+speechSynthesis.onvoiceschanged = loadVoices;
+loadVoices();
+
+function speak(auto = false) {
+  const idx = currentCardIndex();
+  const text = cards[idx].kana;
+
+  if (!jpVoice) {
+    setTimeout(() => speak(auto), 200);
+    return;
+  }
+
+  if (speechSynthesis.speaking) {
+    if (auto) return;
+    speechSynthesis.cancel();
+  }
+
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.voice = jpVoice;
+  utter.lang = "ja-JP";
+  speechSynthesis.speak(utter);
+}
+
+/* ------------------ 夜间模式 ------------------ */
+function toggleDark() {
+  document.body.classList.toggle("dark");
+}
+
+/* ------------------ 掌握标记 ------------------ */
+function markKnown() {
+  const idx = currentCardIndex();
+  mastered[idx] = true;
+  updateProgress();
+}
+
+function markUnknown() {
+  const idx = currentCardIndex();
+  mastered[idx] = false;
+  updateProgress();
+}
+
+/* ------------------ 复习模式 ------------------ */
+function toggleReviewMode() {
+  if (!reviewMode) {
+    const reviewPool = cards.map((_, i) => i).filter(i => !mastered[i]);
+    if (reviewPool.length === 0) {
+      alert("太强了！目前没有标记为“不会”的单词。");
+      return;
+    }
+    pool = reviewPool;
+    poolIndex = 0;
+    reviewMode = true;
+    reviewToggleBtn.textContent = "退出复习模式";
+    refresh();
+    speak(true);
+  } else {
+    pool = cards.map((_, i) => i);
+    poolIndex = 0;
+    reviewMode = false;
+    reviewToggleBtn.textContent = "只复习不会的";
+    refresh();
+    speak(true);
+  }
+}
+
+/* ------------------ 启动 ------------------ */
+refresh();
+speak(true);
+</script>
+
+</body>
+</html>
