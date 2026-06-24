@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>日语闪卡（动画稳定版）</title>
+<style>
+  body {
+    font-family: sans-serif;
+    margin: 0;
+    padding: 20px;
+    background: #f5f5f5;
+    color: #222;
+    transition: background .3s, color .3s;
+  }
+  body.dark {
+    background: #1e1e1e;
+    color: #eee;
+  }
+
+  .card-container {
+    width: 100%;
+    max-width: 360px;
+    margin: 20px auto;
+    perspective: 1000px;
+  }
+
+  .card {
+    width: 100%;
+    height: 220px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.15);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 26px;
+    text-align: center;
+    padding: 20px;
+    cursor: pointer;
+    transition: transform .45s ease;
+    transform-style: preserve-3d;
+    position: relative;
+  }
+  body.dark .card {
+    background: #333;
+    color: #eee;
+  }
+
+  .card.flip {
+    transform: rotateY(180deg);
+  }
+
+  .side {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+
+  .back {
+    transform: rotateY(180deg);
+  }
+
+  .btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 15px;
+  }
+  button {
+    padding: 10px 16px;
+    font-size: 14px;
+    border: none;
+    border-radius: 6px;
+    background: #4a90e2;
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .small {
+    font-size: 12px;
+    opacity: .8;
+    margin-top: 5px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<h2 style="text-align:center;">日语闪卡（动画稳定版）</h2>
+
+<div class="card-container">
+  <div class="card" id="card">
+    <div class="side front" id="front">加载中…</div>
+    <div class="side back" id="back">加载中…</div>
+  </div>
+</div>
+
+<div class="small" id="progress"></div>
+
+<div class="btns">
+  <button onclick="prevCard()">上一张</button>
+  <button onclick="nextCard()">下一张</button>
+  <button onclick="randomCard()">随机</button>
+  <button onclick="toggleSpeak()">自动发音：关</button>
+  <button onclick="speak()">发音</button>
+  <button onclick="toggleDark()">夜间模式</button>
+</div>
+
+<script>
+/* ------------------ 单词数据 ------------------ */
+const cards = [
+  {kanji:"経済", kana:"けいざい", cn:"经济"},
+  {kanji:"分野", kana:"ぶんや", cn:"领域、方面"},
+  {kanji:"影響", kana:"えいきょう", cn:"影响"},
+  {kanji:"準備", kana:"じゅんび", cn:"准备"},
+  {kanji:"お辞儀", kana:"おじぎ", cn:"鞠躬、行礼"},
+  {kanji:"大勢", kana:"おおぜい", cn:"许多人"},
+  {kanji:"信号", kana:"しんごう", cn:"信号、红绿灯"},
+  {kanji:"握手", kana:"あくしゅ", cn:"握手"},
+  {kanji:"就職", kana:"しゅうしょく", cn:"就职"},
+  {kanji:"出席", kana:"しゅっせき", cn:"出席"},
+  {kanji:"留学", kana:"りゅうがく", cn:"留学"},
+  {kanji:"患者", kana:"かんじゃ", cn:"患者"},
+  {kanji:"条件", kana:"じょうけん", cn:"条件"},
+  {kanji:"階段", kana:"かいだん", cn:"楼梯、台阶"},
+  {kanji:"人間", kana:"にんげん", cn:"人、人类"},
+  {kanji:"経理", kana:"けいり", cn:"会计、财务"},
+  {kanji:"列車", kana:"れっしゃ", cn:"列车"},
+  {kanji:"運転手", kana:"うんてんしゅ", cn:"司机"},
+  {kanji:"天気予報", kana:"てんきよほう", cn:"天气预报"},
+  {kanji:"ご主人", kana:"ごしゅじん", cn:"丈夫、主人"},
+  {kanji:"成績", kana:"せいせき", cn:"成绩"},
+  {kanji:"案内", kana:"あんない", cn:"向导、指南"},
+  {kanji:"家内", kana:"かない", cn:"妻"},
+  {kanji:"邪魔", kana:"じゃま", cn:"打扰、妨碍"},
+  {kanji:"遠慮", kana:"えんりょ", cn:"客气、推辞"},
+  {kanji:"品物", kana:"しなもの", cn:"物品、商品"},
+  {kanji:"試合", kana:"しあい", cn:"比赛"},
+  {kanji:"丈夫", kana:"じょうぶ", cn:"结实、健康"},
+  {kanji:"変", kana:"へん", cn:"奇怪、异常"},
+  {kanji:"熱心", kana:"ねっしん", cn:"热心"},
+  {kanji:"真面目", kana:"まじめ", cn:"认真、严肃"},
+  {kanji:"親切", kana:"しんせつ", cn:"亲切"},
+  {kanji:"大事", kana:"だいじ", cn:"重要、宝贝"},
+  {kanji:"特別", kana:"とくべつ", cn:"特别"},
+  {kanji:"残念", kana:"ざんねん", cn:"遗憾、可惜"},
+  {kanji:"簡単", kana:"かんたん", cn:"简单"},
+  {kanji:"危険", kana:"きけん", cn:"危险"},
+  {kanji:"魚", kana:"さかな", cn:"鱼"},
+  {kanji:"野菜", kana:"やさい", cn:"蔬菜"},
+  {kanji:"果物", kana:"くだもの", cn:"水果"},
+  {kanji:"お菓子", kana:"おかし", cn:"点心、零食"},
+  {kanji:"お弁当", kana:"おべんとう", cn:"便当、盒饭"},
+  {kanji:"お土産", kana:"おみやげ", cn:"特产、伴手礼"},
+  {kanji:"お金", kana:"おかね", cn:"钱"},
+  {kanji:"お釣り", kana:"おつり", cn:"找零"},
+  {kanji:"お風呂", kana:"おふろ", cn:"洗澡、浴室"},
+  {kanji:"お返事", kana:"おへんじ", cn:"回信、回复"}
+];
+
+/* ------------------ 状态 ------------------ */
+let index = 0;
+let autoSpeak = false;
+let jpVoice = null;
+
+/* ------------------ 语音加载（最稳定写法） ------------------ */
+function loadVoices() {
+  const voices = speechSynthesis.getVoices();
+  if (voices.length === 0) {
+    setTimeout(loadVoices, 200);
+    return;
+  }
+  jpVoice = voices.find(v => v.lang === "ja-JP") || voices[0];
+}
+speechSynthesis.onvoiceschanged = loadVoices;
+loadVoices();
+
+/* ------------------ 发音 ------------------ */
+function speak() {
+  if (!jpVoice) return setTimeout(speak, 200);
+
+  const utter = new SpeechSynthesisUtterance(cards[index].kana);
+  utter.voice = jpVoice;
+  utter.lang = "ja-JP";
+  speechSynthesis.speak(utter);
+}
+
+/* ------------------ 显示卡片 ------------------ */
+function showCard() {
+  const c = cards[index];
+  document.getElementById("front").textContent = `${c.kanji}（${c.kana}）`;
+  document.getElementById("back").textContent = c.cn;
+  document.getElementById("progress").textContent = `${index+1} / ${cards.length}`;
+
+  if (autoSpeak) speak();
+}
+
+/* ------------------ 翻转 ------------------ */
+document.getElementById("card").addEventListener("click", () => {
+  document.getElementById("card").classList.toggle("flip");
+});
+
+/* ------------------ 导航 ------------------ */
+function nextCard() {
+  index = (index + 1) % cards.length;
+  document.getElementById("card").classList.remove("flip");
+  showCard();
+}
+function prevCard() {
+  index = (index - 1 + cards.length) % cards.length;
+  document.getElementById("card").classList.remove("flip");
+  showCard();
+}
+function randomCard() {
+  index = Math.floor(Math.random() * cards.length);
+  document.getElementById("card").classList.remove("flip");
+  showCard();
+}
+
+/* ------------------ 自动发音开关 ------------------ */
+function toggleSpeak() {
+  autoSpeak = !autoSpeak;
+  event.target.textContent = `自动发音：${autoSpeak ? "开" : "关"}`;
+}
+
+/* ------------------ 夜间模式 ------------------ */
+function toggleDark() {
+  document.body.classList.toggle("dark");
+}
+
+/* ------------------ 启动 ------------------ */
+showCard();
+</script>
+
+</body>
+</html>
